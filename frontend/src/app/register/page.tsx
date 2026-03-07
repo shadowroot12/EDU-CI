@@ -19,17 +19,29 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
     
+    // Validate form
+    if (!username.trim() || !password.trim() || !nom.trim() || !prenom.trim()) {
+      setError('Veuillez remplir tous les champs');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Le mot de passe doit faire au minimum 6 caractères');
+      setLoading(false);
+      return;
+    }
+    
     try {
       await register({ username, password, nom, prenom });
       // Redirect to login page after successful registration
       router.push('/login?registered=true');
     } catch (err: any) {
-      console.error(err);
-      if (err.message.includes('already exists')) {
-        setError('Ce nom d\'utilisateur existe déjà.');
-      } else {
-        setError('Une erreur est survenue lors de l\'inscription.');
-      }
+      console.error('Erreur register:', err);
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Une erreur est survenue lors de l\'inscription.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

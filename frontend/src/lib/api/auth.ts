@@ -1,36 +1,59 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-export async function login(username: string, password: string) {
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-
+async function parseResponse(res: Response) {
+  const contentType = res.headers.get('content-type');
+  
   if (!res.ok) {
-    throw new Error('Échec de la connexion');
+    if (contentType?.includes('application/json')) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || `Erreur ${res.status}`);
+    } else {
+      const text = await res.text();
+      throw new Error(`Erreur ${res.status}: ${text.substring(0, 100)}`);
+    }
   }
+  
+  if (contentType?.includes('application/json')) {
+    return res.json();
+  } else {
+    throw new Error(`Réponse invalide: attendu JSON, reçu ${contentType}`);
+  }
+}
 
-  return res.json();
+export async function login(username: string, password: string) {
+  try {
+    const res = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+
+    return await parseResponse(res);
+  } catch (error) {
+    console.error('Erreur login:', error);
+    throw error;
+  }
 }
 
 export async function register(userData: any) {
-  const res = await fetch(`${API_URL}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData),
-  });
+  try {
+    const res = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
 
-  if (!res.ok) {
-    const errorData = await res.json();
-    throw new Error(errorData.message || 'Échec de l\'inscription');
+    return await parseResponse(res);
+  } catch (error) {
+    console.error('Erreur register:', error);
+    throw error;
   }
-
-  return res.json();
 }
 
 export function setToken(token: string) {
-  localStorage.setItem('edu_token', token);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('edu_token', token);
+  }
 }
 
 export function getToken() {
@@ -39,7 +62,9 @@ export function getToken() {
 }
 
 export function removeToken() {
-  localStorage.removeItem('edu_token');
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('edu_token');
+  }
 }
 
 export async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
@@ -50,17 +75,23 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {})
     ...options.headers,
   };
 
-  const res = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  if (res.status === 401) {
-    // Token expiré ou invalide
-    removeToken();
-    window.location.href = '/login';
-    throw new Error('Non autorisé');
+    if (res.status === 401) {
+      removeToken();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      throw new Error('Session expirée - Veuillez vous reconnecter');
+    }
+
+    return await parseResponse(res);
+  } catch (error) {
+    console.error('Erreur fetchWithAuth:', error);
+    throw error;
   }
-
-  return res;
 }

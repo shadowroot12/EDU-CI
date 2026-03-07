@@ -18,12 +18,24 @@ export default function LoginPage() {
     setError('');
     
     try {
+      if (!username.trim() || !password.trim()) {
+        setError('Veuillez remplir tous les champs');
+        return;
+      }
+
       const data = await login(username, password);
+      if (!data.access_token) {
+        setError('Erreur: Token non reçu du serveur');
+        return;
+      }
       setToken(data.access_token);
       router.push('/dashboard');
     } catch (err: any) {
-      console.error(err);
-      setError('Identifiants incorrects ou problème de connexion.');
+      console.error('Erreur login complète:', err);
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Une erreur est survenue. Vérifiez votre connexion Internet et que le serveur est actif.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

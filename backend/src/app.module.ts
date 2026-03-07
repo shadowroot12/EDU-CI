@@ -17,15 +17,24 @@ import { User } from './users/entities/user.entity';
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url: process.env.DATABASE_URL, // Use DATABASE_URL for Railway/Render
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432', 10),
-      username: process.env.DB_USER || 'edu_user',
-      password: process.env.DB_PASSWORD || 'edu_password',
-      database: process.env.DB_NAME || 'edu_db',
+      // Use DATABASE_URL if provided (for Railway/Render), otherwise use individual params
+      ...(process.env.DATABASE_URL
+        ? { url: process.env.DATABASE_URL }
+        : {
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT || '5432', 10),
+            username: process.env.DB_USER || 'edu_user',
+            password: process.env.DB_PASSWORD || 'edu_password',
+            database: process.env.DB_NAME || 'edu_db',
+          }),
+      entities: [Class, Subject, Student, User],
       autoLoadEntities: true,
-      synchronize: true, // DEV only
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false, // Required for Railway/Render
+      synchronize: process.env.NODE_ENV === 'development', // Only in development
+      logging: process.env.NODE_ENV === 'development',
+      ssl:
+        process.env.NODE_ENV === 'production'
+          ? { rejectUnauthorized: false }
+          : false,
     }),
     TypeOrmModule.forFeature([Class, Subject, Student, User]),
     UsersModule,
